@@ -2,7 +2,7 @@
 
 # configs variables
 NAME=accounts-phone # Set the bundle file name
-PACKAGE=okland:accounts-phone
+PACKAGE=smardo:accounts-phone
 DIST_FOLDER=dist # The folder that the bundled files will be copy in to
 
 # run time variables
@@ -41,7 +41,7 @@ mkdir $OUTPUT_PATH
 # Concat files
 cat "$PACKAGES_PATH/sha.js" >> $OUTPUT_PATH/$NAME.bundle.js
 cat "$PACKAGES_PATH/srp.js" >> $OUTPUT_PATH/$NAME.bundle.js
-cat "$PACKAGES_PATH/okland_accounts-phone.js" >> $OUTPUT_PATH/$NAME.bundle.js
+cat "$PACKAGES_PATH/smardo_accounts-phone.js" >> $OUTPUT_PATH/$NAME.bundle.js
 cat "$PACKAGES_PATH/global-imports.js" >> $OUTPUT_PATH/$NAME.bundle.js
 
 # Minify

@@ -10,7 +10,7 @@ The package is based and inspired by Meteor Accounts-Password package.
 In a Meteor app directory, enter:
 
 ```
-$ meteor add welkinwong:accounts-phone
+$ meteor add smardo:accounts-phone
 ```
 
 
@@ -233,6 +233,3 @@ Login existing user - Requires creating user with password
  */
 Accounts.onPhoneVerification = function (func) { };
 ```
-
-
-
