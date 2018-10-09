@@ -389,13 +389,13 @@ Meteor.methods({requestPhoneVerification: function (phone) {
         // Get user by phone number
         var existingUser = Meteor.users.findOne({'phone.number': phone}, {fields: {'_id': 1}});
         if (existingUser) {
-            userId = existingUser && existingUser._id;
-            Accounts.sendPhoneVerificationCode(userId, phone);
+            userId = existingUser && existingUser._id;   
         } else {
             // Throw error
             throw new Meteor.Error(403, "Not a valid user");
         }
     }
+    Accounts.sendPhoneVerificationCode(userId, phone);
 }});
 
 // Take code from sendVerificationPhone SMS, mark the phone as verified,
