@@ -1,6 +1,6 @@
 Package.describe({
   name: "smardo:accounts-phone",
-  version: "0.0.23",
+  version: "0.0.24",
   // Brief, one-line summary of the package.
   summary: "A login service based on mobile phone number, For Meteor.",
   // URL to the Git repository containing the source code for this package.
@@ -17,7 +17,7 @@ Npm.depends({
 });
 
 Package.onUse(function(api) {
-  api.versionsFrom("1.4.1.2");
+  api.versionsFrom("1.11");
   api.use("ecmascript");
 
   api.use("npm-bcrypt", "server");
