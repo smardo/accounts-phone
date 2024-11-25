@@ -73,6 +73,7 @@ Meteor.methods({
 });
 
 Accounts.onLogin(function (attempt) {
+    logger.debug("Accounts.onLogin", JSON.stringify(attempt));
     if (capturedLogins[attempt.connection.id])
         capturedLogins[attempt.connection.id].push({
             successful: true,
