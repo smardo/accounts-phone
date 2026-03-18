@@ -367,7 +367,7 @@ Accounts.sendPhoneVerificationCode = function(userId, phone) {
     from: SMS.phoneTemplates.from,
     body: SMS.phoneTemplates.text(user, verifyObject.code)
   };
-  console.log(options);
+  //console.log(options);
   try {
     SMS.send(options);
   } catch (e) {
