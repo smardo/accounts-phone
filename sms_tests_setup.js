@@ -31,7 +31,7 @@ Meteor.methods({
 
     addPhoneForTestAndVerify: function (phone) {
         check(phone, String);
-        Meteor.users.update(
+        await Meteor.users.updateAsync(
             {_id: this.userId},
             {$push: {phone: {number: phone, verified: false}}});
         Accounts.sendPhoneVerificationCode(this.userId, phone);
@@ -41,6 +41,6 @@ Meteor.methods({
         check(phone, String);
         var userId = Accounts.createUserWithPhone({phone: phone});
         Accounts.sendPhoneVerificationCode(this.userId, phone);
-        return Meteor.users.findOne(userId);
+        return await Meteor.users.findOneAsync(userId);
     }
 });

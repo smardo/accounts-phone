@@ -19,8 +19,9 @@ var Phone = Npm.require("phone");
 /// BCRYPT
 
 var bcrypt = NpmModuleBcrypt;
-var bcryptHash = Meteor.wrapAsync(bcrypt.hash);
-var bcryptCompare = Meteor.wrapAsync(bcrypt.compare);
+// bcrypt.hash and bcrypt.compare already return Promises — no wrapAsync needed
+var bcryptHash = (data, rounds) => bcrypt.hash(data, rounds);
+var bcryptCompare = (data, hash) => bcrypt.compare(data, hash);
 
 // User records have a 'services.phone.bcrypt' field on them to hold
 // their hashed passwords (unless they have a 'services.phone.srp'
@@ -67,9 +68,9 @@ var getPasswordString = function(password) {
 // SHA256 before bcrypt) or an object with properties `digest` and
 // `algorithm` (in which case we bcrypt `password.digest`).
 //
-var hashPassword = function(password) {
+var hashPassword = async function(password) {
   password = getPasswordString(password);
-  return bcryptHash(password, Accounts._bcryptRounds());
+  return await bcryptHash(password, Accounts._bcryptRounds());
 };
 
 // Check whether the provided password matches the bcrypt'ed password in
@@ -78,14 +79,14 @@ var hashPassword = function(password) {
 // properties `digest` and `algorithm` (in which case we bcrypt
 // `password.digest`).
 //
-Accounts._checkPhonePassword = function(user, password) {
+Accounts._checkPhonePassword = async function(user, password) {
   var result = {
     userId: user._id
   };
 
   password = getPasswordString(password);
 
-  if (!bcryptCompare(password, user.services.phone.bcrypt)) {
+  if (!await bcryptCompare(password, user.services.phone.bcrypt)) {
     result.error = new Meteor.Error(403, "Incorrect password");
   }
 
@@ -107,10 +108,10 @@ var selectorFromUserQuery = function(user) {
   throw new Error("shouldn't happen (validation missed something)");
 };
 
-var findUserFromUserQuery = function(user) {
+var findUserFromUserQuery = async function(user) {
   var selector = selectorFromUserQuery(user);
 
-  var user = Meteor.users.findOne(selector);
+  var user = await Meteor.users.findOneAsync(selector);
   if (!user) throw new Meteor.Error(403, "User not found");
 
   return user;
@@ -151,7 +152,7 @@ var passwordValidator = Match.OneOf(String, {
 //
 // Note that neither password option is secure without SSL.
 //
-Accounts.registerLoginHandler("phone", function(options) {
+Accounts.registerLoginHandler("phone", async function(options) {
   if (!options.password || options.srp) return undefined; // don't handle
 
   check(options, {
@@ -159,7 +160,7 @@ Accounts.registerLoginHandler("phone", function(options) {
     password: passwordValidator
   });
 
-  var user = findUserFromUserQuery(options.user);
+  var user = await findUserFromUserQuery(options.user);
 
   if (
     !user.services ||
@@ -201,7 +202,7 @@ Accounts.registerLoginHandler("phone", function(options) {
     }
   }
 
-  return checkPassword(user, options.password);
+  return await checkPassword(user, options.password);
 });
 
 // Handler to login using the SRP upgrade path. To use this login
@@ -219,7 +220,7 @@ Accounts.registerLoginHandler("phone", function(options) {
 // try the SRP upgrade path.
 //
 // XXX COMPAT WITH 0.8.1.3
-Accounts.registerLoginHandler("phone", function(options) {
+Accounts.registerLoginHandler("phone", async function(options) {
   if (!options.srp || !options.password) return undefined; // don't handle
 
   check(options, {
@@ -228,12 +229,12 @@ Accounts.registerLoginHandler("phone", function(options) {
     password: passwordValidator
   });
 
-  var user = findUserFromUserQuery(options.user);
+  var user = await findUserFromUserQuery(options.user);
 
   // Check to see if another simultaneous login has already upgraded
   // the user record to bcrypt.
   if (user.services && user.services.phone && user.services.phone.bcrypt)
-    return checkPassword(user, options.password);
+    return await checkPassword(user, options.password);
 
   if (!(user.services && user.services.phone && user.services.phone.srp))
     throw new Meteor.Error(403, "User has no password set");
@@ -250,8 +251,8 @@ Accounts.registerLoginHandler("phone", function(options) {
     };
 
   // Upgrade to bcrypt on successful login.
-  var salted = hashPassword(options.password);
-  Meteor.users.update(user._id, {
+  var salted = await hashPassword(options.password);
+  await Meteor.users.updateAsync(user._id, {
     $unset: {"services.phone.srp": 1},
     $set: {"services.phone.bcrypt": salted}
   });
@@ -267,11 +268,11 @@ Accounts.registerLoginHandler("phone", function(options) {
  * @param {String} userId The id of the user to update.
  * @param {String} newPassword A new password for the user.
  */
-Accounts.setPhonePassword = function(userId, newPlaintextPassword) {
-  var user = Meteor.users.findOne(userId);
+Accounts.setPhonePassword = async function(userId, newPlaintextPassword) {
+  var user = await Meteor.users.findOneAsync(userId);
   if (!user) throw new Meteor.Error(403, "User not found");
 
-  Meteor.users.update(
+  await Meteor.users.updateAsync(
     {_id: user._id},
     {
       $unset: {
@@ -279,7 +280,7 @@ Accounts.setPhonePassword = function(userId, newPlaintextPassword) {
         "services.phone.verify": 1,
         "services.resume.loginTokens": 1
       },
-      $set: {"services.phone.bcrypt": hashPassword(newPlaintextPassword)}
+      $set: {"services.phone.bcrypt": await hashPassword(newPlaintextPassword)}
     }
   );
 };
@@ -296,13 +297,13 @@ Accounts.setPhonePassword = function(userId, newPlaintextPassword) {
  * @param {String} userId The id of the user to send email to.
  * @param {String} [phone] Optional. Which phone of the user's to send the SMS to. This phone must be in the user's `phones` list. Defaults to the first unverified phone in the list.
  */
-Accounts.sendPhoneVerificationCode = function(userId, phone) {
+Accounts.sendPhoneVerificationCode = async function(userId, phone) {
   // XXX Also generate a link using which someone can delete this
   // account if they own said number but weren't those who created
   // this account.
 
   // Make sure the user exists, and phone is one of their phones.
-  var user = Meteor.users.findOne(userId);
+  var user = await Meteor.users.findOneAsync(userId);
   if (!user) throw new Error("Can't find user");
   // pick the first unverified phone if we weren't passed an phone.
   if (!phone && user.phone) {
@@ -353,7 +354,7 @@ Accounts.sendPhoneVerificationCode = function(userId, phone) {
   verifyObject.lastRetry = curTime;
   verifyObject.numOfRetries++;
 
-  Meteor.users.update(
+  await Meteor.users.updateAsync(
     {_id: userId},
     {$set: {"services.phone.verify": verifyObject}}
   );
@@ -369,7 +370,7 @@ Accounts.sendPhoneVerificationCode = function(userId, phone) {
   };
   //console.log(options);
   try {
-    SMS.send(options);
+    await SMS.send(options);
   } catch (e) {
     console.log("SMS Failed, Something bad happened!", e);
   }
@@ -377,7 +378,7 @@ Accounts.sendPhoneVerificationCode = function(userId, phone) {
 
 // Send SMS with code to user.
 Meteor.methods({
-  requestPhoneVerification: function(phone) {
+  requestPhoneVerification: async function(phone) {
     if (phone) {
       check(phone, String);
       // Change phone format to international SMS format
@@ -393,7 +394,7 @@ Meteor.methods({
     var userId = this.userId;
     if (!userId) {
       // Get user by phone number
-      var existingUser = Meteor.users.findOne(
+      var existingUser = await Meteor.users.findOneAsync(
         {"phone.number": phone},
         {fields: {_id: 1}}
       );
@@ -404,7 +405,7 @@ Meteor.methods({
         throw new Meteor.Error(403, "Not a valid user");
       }
     }
-    Accounts.sendPhoneVerificationCode(userId, phone);
+    await Accounts.sendPhoneVerificationCode(userId, phone);
   }
 });
 
@@ -412,16 +413,16 @@ Meteor.methods({
 // Change password if needed
 // and log them in.
 Meteor.methods({
-  verifyPhone: function(phone, code, newPassword) {
+  verifyPhone: async function(phone, code, newPassword) {
     var self = this;
     // Check if needs to change password
 
-    return Accounts._loginMethod(
+    return await Accounts._loginMethod(
       self,
       "verifyPhone",
       arguments,
       "phone",
-      function() {
+      async function() {
         check(code, String);
         check(phone, String);
 
@@ -431,7 +432,7 @@ Meteor.methods({
         // Change phone format to international SMS format
         phone = normalizePhone(phone);
 
-        var user = Meteor.users.findOne({
+        var user = await Meteor.users.findOneAsync({
           "phone.number": phone
         });
         if (!user) throw new Meteor.Error(403, "Not a valid phone");
@@ -452,7 +453,7 @@ Meteor.methods({
         // If needs to update password
         if (newPassword) {
           check(newPassword, passwordValidator);
-          var hashed = hashPassword(newPassword);
+          var hashed = await hashPassword(newPassword);
 
           // NOTE: We're about to invalidate tokens on the user, who we might be
           // logged in as. Make sure to avoid logging ourselves out if this
@@ -482,7 +483,7 @@ Meteor.methods({
           // - Changing the password to the new one
           // - Forgetting about the verification code that was just used
           // - Verifying the phone, since they got the code via sms to phone.
-          var affectedRecords = Meteor.users.update(query, {
+          var affectedRecords = await Meteor.users.updateAsync(query, {
             $set: setOptions,
             $unset: unSetOptions
           });
@@ -518,7 +519,7 @@ Meteor.methods({
 // does the actual user insertion.
 //
 // returns the user id
-var createUser = function(options) {
+var createUser = async function(options) {
   // Unknown keys allowed, because a onCreateUserHook can take arbitrary
   // options.
   check(
@@ -532,7 +533,7 @@ var createUser = function(options) {
   var phone = options.phone;
   if (!phone) throw new Meteor.Error(400, "Need to set phone");
 
-  var existingUser = Meteor.users.findOne({"phone.number": phone});
+  var existingUser = await Meteor.users.findOneAsync({"phone.number": phone});
 
   if (existingUser) {
     throw new Meteor.Error(403, "User with this phone number already exists");
@@ -540,14 +541,14 @@ var createUser = function(options) {
 
   var user = {services: {}};
   if (options.password) {
-    var hashed = hashPassword(options.password);
+    var hashed = await hashPassword(options.password);
     user.services.phone = {bcrypt: hashed};
   }
 
   user.phone = {number: phone, verified: false};
 
   try {
-    return Accounts.insertUserDoc(options, user);
+    return await Accounts.insertUserDoc(options, user);
   } catch (e) {
     // XXX string parsing sucks, maybe
     // https://jira.mongodb.org/browse/SERVER-3069 will get fixed one day
@@ -565,7 +566,7 @@ var createUser = function(options) {
 
 // method for create user. Requests come from the client.
 Meteor.methods({
-  createUserWithPhone: function(options) {
+  createUserWithPhone: async function(options) {
     var self = this;
     check(options, Object);
     if (options.phone) {
@@ -575,19 +576,19 @@ Meteor.methods({
       options.phone = normalizePhone(options.phone);
     }
 
-    return Accounts._loginMethod(
+    return await Accounts._loginMethod(
       self,
       "createUserWithPhone",
       arguments,
       "phone",
-      function() {
+      async function() {
         if (Accounts._options.forbidClientAccountCreation)
           return {
             error: new Meteor.Error(403, "Signups forbidden")
           };
 
         // Create user. result contains id and token.
-        var userId = createUser(options);
+        var userId = await createUser(options);
         // safety belt. createUser is supposed to throw on error. send 500 error
         // instead of sending a verification email with empty userid.
         if (!userId) throw new Error("createUser failed to insert new user");
@@ -599,7 +600,7 @@ Meteor.methods({
           options.phone &&
           Accounts._options.sendPhoneVerificationCodeOnCreation
         ) {
-          Accounts.sendPhoneVerificationCode(userId, options.phone);
+          await Accounts.sendPhoneVerificationCode(userId, options.phone);
         }
 
         // client gets logged in as the new user afterwards.
@@ -621,7 +622,7 @@ Meteor.methods({
 // true", which we want to prevent the client from setting, but which a custom
 // method calling Accounts.createUser could set?
 //
-Accounts.createUserWithPhone = function(options, callback) {
+Accounts.createUserWithPhone = async function(options, callback) {
   options = _.clone(options);
 
   // XXX allow an optional callback?
@@ -631,14 +632,16 @@ Accounts.createUserWithPhone = function(options, callback) {
     );
   }
 
-  return createUser(options);
+  return await createUser(options);
 };
 
 ///
 /// PASSWORD-SPECIFIC INDEXES ON USERS
 ///
-Meteor.users._ensureIndex("phone.number", {unique: 1, sparse: 1});
-Meteor.users._ensureIndex("services.phone.verify.code", {unique: 1, sparse: 1});
+Meteor.startup(async () => {
+  await Meteor.users.createIndexAsync({"phone.number": 1}, {unique: true, sparse: true});
+  await Meteor.users.createIndexAsync({"services.phone.verify.code": 1}, {unique: true, sparse: true});
+});
 
 /*** Control published data *********/
 Meteor.startup(function() {

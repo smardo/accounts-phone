@@ -113,7 +113,7 @@ Meteor.methods({
     clearPhonsAndProfile: function () {
         if (!this.userId)
             throw new Error("Not logged in!");
-        Meteor.users.update(this.userId,
+        await Meteor.users.updateAsync(this.userId,
             {$unset: {profile: 1, phone: 1}});
     },
 
@@ -121,7 +121,7 @@ Meteor.methods({
         Accounts._expireTokens(new Date(), this.userId);
     },
     removeUser: function (phone) {
-        Meteor.users.remove({ "phone.number": phone });
+        await Meteor.users.removeAsync({ "phone.number": phone });
     }
 });
 
@@ -131,9 +131,9 @@ Meteor.methods({
 Meteor.methods({
     testCreateSRPUser: function () {
         var phone = '+97254580'+ (Math.abs(Math.floor(Math.random() * 1000 - 1000)) + 1000);
-        Meteor.users.remove({'phone.number': phone});
+        await Meteor.users.removeAsync({'phone.number': phone});
         var userId = Accounts.createUserWithPhone({'phone.number': phone});
-        Meteor.users.update(
+        await Meteor.users.updateAsync(
             userId,
             { '$set': { 'services.phone.srp': {
                 "identity" : "iPNrshUEcpOSO5fRDu7o4RRDc9OJBCGGljYpcXCuyg9",
@@ -145,7 +145,7 @@ Meteor.methods({
     },
 
     testSRPUpgrade: function (phone) {
-        var user = Meteor.users.findOne({'phone.number': phone});
+        var user = await Meteor.users.findOneAsync({'phone.number': phone});
         if (user.services && user.services.phone && user.services.phone.srp)
             throw new Error("srp wasn't removed");
         if (!(user.services && user.services.phone && user.services.phone.bcrypt))
@@ -153,7 +153,7 @@ Meteor.methods({
     },
 
     testNoSRPUpgrade: function (phone) {
-        var user = Meteor.users.findOne({'phone.number': phone});
+        var user = await Meteor.users.findOneAsync({'phone.number': phone});
         if (user.services && user.services.phone && user.services.phone.bcrypt)
             throw new Error("bcrypt was added");
         if (user.services && user.services.phone && ! user.services.phone.srp)

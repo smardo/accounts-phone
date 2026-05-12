@@ -1,4 +1,3 @@
-var Future = Npm.require("fibers/future");
 var Twilio = Npm.require("twilio");
 
 SMS = {};
@@ -28,12 +27,10 @@ var devModeSend = function(options) {
     "(SMS not sent; to enable sending, set the TWILIO_CREDENTIALS " +
       "environment variable.)\n"
   );
-  var future = new Future();
   stream.write("From:" + options.from + "\n");
   stream.write("To:" + options.to + "\n");
   stream.write("Text:" + options.body + "\n");
   stream.write("====== END SMS #" + devmode_sms_id + " ======\n");
-  future["return"]();
 };
 
 /**
@@ -61,33 +58,16 @@ SMSTest.hookSend = function(f) {
  * @param options.to {String} - The receiver SMS number
  * @param options.body {String}  - The content of the SMS
  */
-SMS.send = function(options) {
+SMS.send = async function(options) {
   for (var i = 0; i < sendHooks.length; i++) if (!sendHooks[i](options)) return;
-  if (SMS.twilio) {
+  if (SMS.sns) {
+    return await SMS._sendViaSNS(options);
+  } else if (SMS.twilio) {
     var client = Twilio(SMS.twilio.ACCOUNT_SID, SMS.twilio.AUTH_TOKEN);
     // Include FROM in options if it is defined.
     SMS.twilio.FROM && (options.from = SMS.twilio.FROM);
 
-    // client.messages
-    //   .create(options)
-    //   .then(message => console.log(message.sid))
-    //   .done();
-
-    var sendFunction = client.messages.create;
-
-    // Send SMS  API async func
-    var sendSMSSync = Meteor.wrapAsync(sendFunction, client.messages);
-    // call the sync version of our API func with the parameters from the method call
-    var result = sendSMSSync(options, function(err, responseData) {
-      //this function is executed when a response is received from Twilio
-      if (err) {
-        // "err" is an error received during the request, if any
-        throw new Meteor.Error("Error sending SMS ", err.message);
-      }
-      return responseData;
-    });
-
-    return result;
+    return await client.messages.create(options);
   } else {
     devModeSend(options);
   }

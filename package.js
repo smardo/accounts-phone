@@ -13,11 +13,12 @@ Package.describe({
 Npm.depends({
   phone: "2.0.0",
   twilio: "3.22.0",
-  "stream-buffers": "3.0.2"
+  "stream-buffers": "3.0.2",
+  "aws-sdk": "2.1692.0"
 });
 
 Package.onUse(function(api) {
-  api.versionsFrom("2.16");
+  api.versionsFrom(["2.16", "3.0"]);
   api.use("ecmascript");
 
   api.use("npm-bcrypt", "server");
@@ -35,6 +36,7 @@ Package.onUse(function(api) {
   api.use("underscore");
   api.use("ddp", ["client", "server"]);
   api.addFiles("sms_server.js", "server");
+  api.addFiles("sms_aws_server.js", "server");
 
   api.export("SMS", "server");
   api.export("SMSTest", "server", {testOnly: true});

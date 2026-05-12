@@ -6,7 +6,7 @@ if (Meteor.isServer) {
             return this.userId;
         },
         getVerificationCode: function () {
-            var code = Meteor.users.findOne(this.userId).services.phone.verify.code;
+            var code = await Meteor.users.findOneAsync(this.userId).services.phone.verify.code;
             return code;
         }
     });
@@ -385,7 +385,7 @@ if (Meteor.isClient) (function () {
 //            test.notEqual(this.userId, null);
 //            test.notEqual(this.userId, this.otherUserId);
 //            // Can't update fields other than profile.
-//            Meteor.users.update(
+//            await Meteor.users.updateAsync(
 //                this.userId, {$set: {disallowed: true, 'profile.updated': 42}},
 //                expect(function (err) {
 //                    test.isTrue(err);
@@ -396,7 +396,7 @@ if (Meteor.isClient) (function () {
 //        },
 //        function(test, expect) {
 //            // Can't update another user.
-//            Meteor.users.update(
+//            await Meteor.users.updateAsync(
 //                this.otherUserId, {$set: {'profile.updated': 42}},
 //                expect(function (err) {
 //                    test.isTrue(err);
@@ -406,14 +406,14 @@ if (Meteor.isClient) (function () {
 //        function(test, expect) {
 //            // Can't update using a non-ID selector. (This one is thrown client-side.)
 //            test.throws(function () {
-//                Meteor.users.update(
+//                await Meteor.users.updateAsync(
 //                    {username: this.username}, {$set: {'profile.updated': 42}});
 //            });
 //            test.isFalse(_.has(Meteor.user().profile, 'updated'));
 //        },
 //        function(test, expect) {
 //            // Can update own profile using ID.
-//            Meteor.users.update(
+//            await Meteor.users.updateAsync(
 //                this.userId, {$set: {'profile.updated': 42}},
 //                expect(function (err) {
 //                    test.isFalse(err);
@@ -857,7 +857,7 @@ if (Meteor.isServer) (function () {
 //                testOnCreateUserHook: true});
 //
 //            test.isTrue(userId);
-//            var user = Meteor.users.findOne(userId);
+//            var user = await Meteor.users.findOneAsync(userId);
 //            test.equal(user.profile.touchedByOnCreateUser, true);
 //        });
 
@@ -868,31 +868,31 @@ if (Meteor.isServer) (function () {
 
             var userId = Accounts.createUserWithPhone({phone: phone});
 
-            var user = Meteor.users.findOne(userId);
+            var user = await Meteor.users.findOneAsync(userId);
             // no services yet.
             test.equal(user.services.phone, undefined);
 
             // set a new password.
             Accounts.setPhonePassword(userId, 'new password');
-            user = Meteor.users.findOne(userId);
+            user = await Meteor.users.findOneAsync(userId);
             var oldSaltedHash = user.services.phone.bcrypt;
             test.isTrue(oldSaltedHash);
 
             // Send a request for phone verification
             Accounts.sendPhoneVerificationCode(userId, phone);
             Accounts._insertLoginToken(userId, Accounts._generateStampedLoginToken());
-            test.isTrue(Meteor.users.findOne(userId).services.phone.verify);
-            test.isTrue(Meteor.users.findOne(userId).services.resume.loginTokens);
+            test.isTrue(await Meteor.users.findOneAsync(userId).services.phone.verify);
+            test.isTrue(await Meteor.users.findOneAsync(userId).services.resume.loginTokens);
 
             // reset with the same password, see we get a different salted hash
             Accounts.setPhonePassword(userId, 'new password');
-            user = Meteor.users.findOne(userId);
+            user = await Meteor.users.findOneAsync(userId);
             var newSaltedHash = user.services.phone.bcrypt;
             test.isTrue(newSaltedHash);
             test.notEqual(oldSaltedHash, newSaltedHash);
             // No more tokens.
-            test.isFalse(Meteor.users.findOne(userId).services.phone.verify);
-            test.isFalse(Meteor.users.findOne(userId).services.resume.loginTokens);
+            test.isFalse(await Meteor.users.findOneAsync(userId).services.phone.verify);
+            test.isFalse(await Meteor.users.findOneAsync(userId).services.resume.loginTokens);
 
 
             try {
@@ -901,7 +901,7 @@ if (Meteor.isServer) (function () {
                 test.isTrue(e, 'Don\'t two users with same phone');
             }
             // cleanup
-            Meteor.users.remove(userId);
+            await Meteor.users.removeAsync(userId);
         });
 
     // This test properly belongs in accounts-base/accounts_tests.js, but
