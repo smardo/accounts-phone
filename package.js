@@ -1,6 +1,6 @@
 Package.describe({
   name: "smardo:accounts-phone",
-  version: "0.0.26",
+  version: "0.0.27",
   // Brief, one-line summary of the package.
   summary: "A login service based on mobile phone number, For Meteor.",
   // URL to the Git repository containing the source code for this package.
@@ -13,8 +13,7 @@ Package.describe({
 Npm.depends({
   phone: "2.0.0",
   twilio: "3.22.0",
-  "stream-buffers": "3.0.2",
-  "aws-sdk": "2.1692.0"
+  "stream-buffers": "3.0.2"
 });
 
 Package.onUse(function(api) {
@@ -36,7 +35,6 @@ Package.onUse(function(api) {
   api.use("underscore");
   api.use("ddp", ["client", "server"]);
   api.addFiles("sms_server.js", "server");
-  api.addFiles("sms_aws_server.js", "server");
 
   api.export("SMS", "server");
   api.export("SMSTest", "server", {testOnly: true});
